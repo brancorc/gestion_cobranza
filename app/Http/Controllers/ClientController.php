@@ -9,7 +9,7 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Client::query()->withCount('lots'); // withCount es eficiente
+        $query = Client::query()->withCount('lots');
 
         if ($request->filled('search')) {
             $searchTerm = '%' . $request->search . '%';
@@ -47,11 +47,11 @@ class ClientController extends Controller
 
     public function show(Client $client)
     {
-        // Cargar relaciones necesarias
         $client->load([
             'lots.paymentPlans.service', 
             'lots.paymentPlans.installments.transactions',
-            'transactions'
+            'transactions',
+            'documents'
         ]);
 
         $totalDebt = 0;
@@ -61,7 +61,10 @@ class ClientController extends Controller
         foreach ($client->lots as $lot) {
             foreach ($lot->paymentPlans as $plan) {
                 foreach ($plan->installments as $installment) {
-                    $totalDueForInstallment = $installment->base_amount + $installment->interest_amount;
+                    // CORRECCIÓN: Usar el campo 'amount' si existe, si no, 'base_amount'.
+                    $installmentValue = $installment->amount ?? $installment->base_amount;
+                    $totalDueForInstallment = $installmentValue + $installment->interest_amount;
+                    
                     $paidForInstallment = $installment->transactions->sum('pivot.amount_applied');
                     $remaining = $totalDueForInstallment - $paidForInstallment;
 
@@ -98,17 +101,17 @@ class ClientController extends Controller
             'email' => 'nullable|email|max:255|unique:clients,email,' . $client->id,
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'notes' => 'nullable|string',
         ]);
 
+        // Usar update() directamente con los datos validados asegura que se guarden todos los campos.
         $client->update($validated);
 
-        return redirect()->route('clients.index')
-            ->with('success', 'Cliente actualizado exitosamente.');
+        return redirect()->route('clients.edit', $client)->with('success', 'Cliente actualizado exitosamente.');
     }
 
     public function destroy(Client $client)
     {
-        // Verificar que no tenga lotes asociados
         if ($client->lots()->count() > 0) {
             return back()->with('error', 'No se puede eliminar un cliente con lotes asociados.');
         }

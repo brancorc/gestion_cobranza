@@ -26,7 +26,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div class="md:col-span-3">
                             <x-input-label for="search" value="Buscar Lote o Cliente" />
-                            <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="request('search')" placeholder="Buscar por lote, cliente o socio..." />
+                            <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="request('search')" placeholder="Busca por 'Manzana 10 Lote 5', 'M 10', cliente o socio..." />
                         </div>
                         <div class="flex items-end gap-2">
                             <x-primary-button class="w-full justify-center">Buscar</x-primary-button>

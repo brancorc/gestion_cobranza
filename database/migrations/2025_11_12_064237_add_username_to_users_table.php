@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('lots', function (Blueprint $table) {
-            // La columna ya debería ser nullable, pero confirma que lo es.
-            $table->foreignId('owner_id')->nullable()->after('id')->constrained('owners')->onDelete('set null');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('username')->unique()->after('name');
+            $table->string('email')->nullable()->change(); // Hacer el email opcional
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('lots', function (Blueprint $table) {
+        Schema::table('users', function (Blueprint $table) {
             //
         });
     }

@@ -10,40 +10,75 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentPlanController extends Controller
 {
+
     public function store(Request $request, Lot $lot)
     {
         $validated = $request->validate([
             'service_id' => 'required|exists:services,id',
-            'total_amount' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0', // El total_amount original se mantiene como fuente de verdad
             'number_of_installments' => 'required|integer|min:1',
             'start_date' => 'required|date',
+            'amounts' => 'required|array',
+            'amounts.*' => 'required|numeric|min:0',
+            'due_dates' => 'required|array',
+            'due_dates.*' => 'required|date',
         ]);
 
-        // Evitar planes de pago duplicados para el mismo lote y servicio
-        $exists = PaymentPlan::where('lot_id', $lot->id)
-            ->where('service_id', $validated['service_id'])
-            ->exists();
-            
+        if (count($validated['amounts']) != $validated['number_of_installments']) {
+            return back()->with('error', 'El número de cuotas no coincide con los montos enviados.');
+        }
+        
+        // No se recalcula el total, se usa el 'total_amount' enviado por el usuario
+        // y la advertencia se maneja en el frontend.
+        
+        $exists = \App\Models\PaymentPlan::where('lot_id', $lot->id)->where('service_id', $validated['service_id'])->exists();
         if ($exists) {
-            return back()->withErrors(['service_id' => 'Ya existe un plan de pago para este lote y servicio.']);
+            return back()->with('error', 'Ya existe un plan de pago para este lote y servicio.');
         }
 
         try {
             DB::beginTransaction();
 
-            $paymentPlan = $lot->paymentPlans()->create($validated);
+            // Crear el plan de pago con el total_amount original
+            $paymentPlan = $lot->paymentPlans()->create([
+                'service_id' => $validated['service_id'],
+                'total_amount' => $validated['total_amount'],
+                'number_of_installments' => $validated['number_of_installments'],
+                'start_date' => $validated['start_date'],
+            ]);
 
-            $this->generateInstallments($paymentPlan);
+            foreach ($validated['amounts'] as $index => $amount) {
+                $paymentPlan->installments()->create([
+                    'installment_number' => $index + 1,
+                    'due_date' => $validated['due_dates'][$index],
+                    'amount' => $amount,
+                    // El base_amount aquí es informativo, el 'amount' es el principal
+                    'base_amount' => round($validated['total_amount'] / $validated['number_of_installments'], 2),
+                ]);
+            }
 
             DB::commit();
-
-            return redirect()->route('lots.edit', $lot)->with('success', 'Plan de pago y cuotas generados exitosamente.');
+            return redirect()->route('lots.edit', $lot)->with('success', 'Plan de pago creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('lots.edit', $lot)->with('error', 'Error al generar el plan de pago: ' . $e->getMessage());
+            return redirect()->route('lots.edit', $lot)->with('error', 'Error al crear el plan: ' . $e->getMessage());
         }
     }
-    
+
+    public function destroy(\App\Models\PaymentPlan $plan)
+    {
+        if ($plan->installments()->whereHas('transactions')->exists()) {
+            if (auth()->user()->can('forceDelete', 'App\Models\PaymentPlan')) {
+                $plan->delete();
+                return back()->with('success', 'Plan de pago eliminado forzosamente.');
+            }
+            return back()->with('error', 'No se puede eliminar: el plan tiene pagos registrados. Solo un administrador puede forzar esta acción.');
+        }
+
+        $plan->delete();
+        return back()->with('success', 'Plan de pago eliminado exitosamente.');
+    }
+
     public function generateInstallments(PaymentPlan $paymentPlan)
     {
         $installments = [];
@@ -65,6 +100,7 @@ class PaymentPlanController extends Controller
                 'installment_number' => $i,
                 'due_date' => $startDate->copy()->addMonths($i - 1)->toDateString(),
                 'base_amount' => $currentAmount,
+                'amount' => $currentAmount, // <-- AÑADIR ESTA LÍNEA
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

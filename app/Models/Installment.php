@@ -13,6 +13,7 @@ class Installment extends Model
         'payment_plan_id',
         'installment_number',
         'due_date',
+        'amount',
         'base_amount',
         'interest_amount',
         'status',

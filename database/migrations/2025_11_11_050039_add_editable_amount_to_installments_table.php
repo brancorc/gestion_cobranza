@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('lots', function (Blueprint $table) {
-            // La columna ya debería ser nullable, pero confirma que lo es.
-            $table->foreignId('owner_id')->nullable()->after('id')->constrained('owners')->onDelete('set null');
+        Schema::table('installments', function (Blueprint $table) {
+            // Almacenará el valor real editable de la cuota
+            $table->decimal('amount', 10, 2)->nullable()->after('due_date');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('lots', function (Blueprint $table) {
+        Schema::table('installments', function (Blueprint $table) {
             //
         });
     }

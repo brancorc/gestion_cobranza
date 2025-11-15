@@ -13,4 +13,16 @@ class InstallmentController extends Controller
 
         return back()->with('success', 'Intereses condonados exitosamente.');
     }
+
+    public function update(Request $request, Installment $installment)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        $installment->update($validated);
+
+        return back()->with('success', 'Monto de la cuota actualizado.');
+    }
+
 }

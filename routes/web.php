@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OwnerController;
-
+use App\Http\Controllers\OwnerTransferController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
 
     // Planes de Pago (anidado en Lotes)
     Route::post('lots/{lot}/payment-plans', [PaymentPlanController::class, 'store'])->name('lots.payment-plans.store');
+    Route::delete('payment-plans/{plan}', [PaymentPlanController::class, 'destroy'])->name('payment-plans.destroy');
     
     // Transacciones
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
@@ -68,6 +69,9 @@ Route::middleware('auth')->group(function () {
 
     // Propietarios
     Route::resource('owners', OwnerController::class);
+    Route::post('lots/{lot}/transfer-owner', [OwnerTransferController::class, 'transfer'])->name('lots.transfer-owner');
+
+    Route::put('/installments/{installment}', [InstallmentController::class, 'update'])->name('installments.update');
 });
 
 require __DIR__.'/auth.php';

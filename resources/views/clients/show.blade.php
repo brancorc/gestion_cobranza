@@ -8,112 +8,269 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Header con Acciones -->
-            <div class="bg-white shadow-sm sm:rounded-lg p-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-full bg-indigo-500 flex items-center justify-center text-white text-2xl font-bold">
-                            {{ strtoupper(substr($client->name, 0, 1)) }}
+            <!-- Tarjeta de Información del Cliente -->
+            <div class="bg-gradient-to-br from-indigo-50 to-white overflow-hidden shadow-lg sm:rounded-xl border border-indigo-100">
+                <div class="p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                                {{ strtoupper(substr($client->name, 0, 1)) }}
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900">
+                                Información del Cliente
+                            </h3>
                         </div>
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-900">{{ $client->name }}</h1>
-                            <p class="text-sm text-gray-600">{{ $client->email ?? $client->phone }}</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-3 mt-4 sm:mt-0">
-                        <a href="{{ route('clients.edit', $client) }}" class="inline-flex items-center px-4 py-2 bg-yellow-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-yellow-400">
-                            Editar
+                        <a href="{{ route('clients.edit', $client) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                            Editar Cliente
                         </a>
-                        <form action="{{ route('clients.destroy', $client) }}" method="POST" onsubmit="return confirm('¿Seguro?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500">
-                                Eliminar
-                            </button>
-                        </form>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nombre Completo</p>
+                            <p class="text-base font-bold text-gray-900">{{ $client->name }}</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Teléfono</p>
+                            <p class="text-base font-bold text-gray-900">{{ $client->phone ?? 'No registrado' }}</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Email</p>
+                            <p class="text-base font-bold text-gray-900">{{ $client->email ?? 'No registrado' }}</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Dirección</p>
+                            <p class="text-base font-bold text-gray-900">{{ $client->address ?? 'No registrada' }}</p>
+                        </div>
+                        @if($client->notes)
+                        <div class="md:col-span-2 bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Notas</p>
+                            <p class="text-base font-bold text-gray-900 whitespace-pre-wrap">{{ $client->notes }}</p>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
 
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="bg-white p-5 rounded-lg shadow-sm"><p class="text-sm text-gray-500">Lotes/Servicios</p><p class="text-2xl font-bold">{{ $stats['servicesCount'] }}</p></div>
-                <div class="bg-white p-5 rounded-lg shadow-sm"><p class="text-sm text-gray-500">Deuda Total</p><p class="text-2xl font-bold text-red-500">${{ number_format($stats['totalDebt'], 2) }}</p></div>
-                <div class="bg-white p-5 rounded-lg shadow-sm"><p class="text-sm text-gray-500">Cuotas Pendientes</p><p class="text-2xl font-bold">{{ $stats['pendingInstallmentsCount'] }}</p></div>
-                <div class="bg-white p-5 rounded-lg shadow-sm"><p class="text-sm text-gray-500">Total Pagado</p><p class="text-2xl font-bold text-green-500">${{ number_format($stats['totalPaid'], 2) }}</p></div>
-            </div>
-
-            <!-- Detalle de Lotes y Planes de Pago -->
-            @foreach ($client->lots as $lot)
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">
-                        <h3 class="text-lg font-medium mb-2">Lote: {{ $lot->identifier }}</h3>
-                        
-                        @forelse ($lot->paymentPlans as $plan)
-                            <div class="mt-4">
-                                <h4 class="font-semibold text-gray-700">{{ $plan->service->name }} - Total: ${{ number_format($plan->total_amount, 2) }}</h4>
-                                <div class="overflow-x-auto mt-2">
-                                    <table class="w-full text-sm">
-                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                                            <tr>
-                                                <th class="px-4 py-2 text-left">#</th>
-                                                <th class="px-4 py-2 text-left">Vencimiento</th>
-                                                <th class="px-4 py-2 text-left">Monto Base</th>
-                                                <th class="px-4 py-2 text-left">Intereses</th>
-                                                <th class="px-4 py-2 text-left">Total</th>
-                                                <th class="px-4 py-2 text-left">Pagado</th>
-                                                <th class="px-4 py-2 text-left">Adeudo</th>
-                                                <th class="px-4 py-2 text-left">Estado</th>
-                                                <th class="px-4 py-2 text-right">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-gray-200">
-                                            @foreach ($plan->installments->sortBy('installment_number') as $installment)
-                                                @php
-                                                    $totalDue = $installment->base_amount + $installment->interest_amount;
-                                                    $totalPaid = $installment->transactions->sum('pivot.amount_applied');
-                                                    $remaining = $totalDue - $totalPaid;
-                                                @endphp
-                                                <tr class="hover:bg-gray-50">
-                                                    <td class="px-4 py-2">{{ $installment->installment_number }}</td>
-                                                    <td class="px-4 py-2">{{ $installment->due_date->format('d/m/Y') }}</td>
-                                                    <td class="px-4 py-2">${{ number_format($installment->base_amount, 2) }}</td>
-                                                    <td class="px-4 py-2 text-yellow-600">${{ number_format($installment->interest_amount, 2) }}</td>
-                                                    <td class="px-4 py-2">${{ number_format($totalDue, 2) }}</td>
-                                                    <td class="px-4 py-2 text-green-600">${{ number_format($totalPaid, 2) }}</td>
-                                                    <td class="px-4 py-2 font-bold {{ $remaining > 0.005 ? 'text-red-600' : 'text-green-600' }}">${{ number_format($remaining, 2) }}</td>
-                                                    <td class="px-4 py-2">
-                                                        @php
-                                                            $statusClass = $remaining <= 0.005 ? 'bg-green-100 text-green-800' : ($installment->status == 'vencida' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800');
-                                                        @endphp
-                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusClass }}">
-                                                            {{ $remaining <= 0.005 ? 'Pagada' : ucfirst($installment->status) }}
-                                                        </span>
-                                                    </td>
-                                                    <td class="px-4 py-2 text-right space-x-2">
-                                                        @if ($installment->interest_amount > 0)
-                                                            <form action="{{ route('installments.condone', $installment) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Seguro?');">
-                                                                @csrf
-                                                                <button type="submit" class="text-xs text-blue-600 hover:underline">Condonar</button>
-                                                            </form>
-                                                        @endif
-                                                        @if($remaining > 0.005)
-                                                            <a href="{{ generate_whatsapp_message($installment, $remaining) }}" target="_blank" class="text-xs text-green-600 hover:underline">Notificar</a>
-                                                            <a href="{{ route('transactions.create', ['client_id' => $client->id, 'installment_id' => $installment->id]) }}" class="text-xs text-blue-600 hover:underline">Pagar</a>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        @empty
-                            <p class="mt-4 text-gray-500">Este lote no tiene planes de pago.</p>
-                        @endforelse
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-xl shadow-lg text-white transform hover:scale-105 transition-transform duration-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-blue-100 mb-1">Lotes/Servicios</p>
+                            <p class="text-3xl font-bold">{{ $stats['servicesCount'] }}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                        </div>
                     </div>
                 </div>
-            @endforeach
+                <div class="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-xl shadow-lg text-white transform hover:scale-105 transition-transform duration-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-red-100 mb-1">Deuda Total</p>
+                            <p class="text-3xl font-bold">${{ number_format($stats['totalDebt'], 2) }}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-xl shadow-lg text-white transform hover:scale-105 transition-transform duration-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-yellow-100 mb-1">Cuotas Pendientes</p>
+                            <p class="text-3xl font-bold">{{ $stats['pendingInstallmentsCount'] }}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl shadow-lg text-white transform hover:scale-105 transition-transform duration-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-green-100 mb-1">Total Pagado</p>
+                            <p class="text-3xl font-bold">${{ number_format($stats['totalPaid'], 2) }}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta de Documentos del Cliente -->
+            <div class="bg-white overflow-hidden shadow-lg sm:rounded-xl border border-gray-200">
+                <div class="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center text-white font-bold shadow-md">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900">Documentos Adjuntos</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    @if($client->documents->count() > 0)
+                        <ul class="space-y-3">
+                            @foreach($client->documents as $document)
+                                <li class="flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                                    <a href="{{ $document->document_url }}" target="_blank" class="flex items-center gap-3 font-medium text-purple-600 hover:text-purple-800 transition-colors">
+                                        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <span>{{ $document->document_name }}</span>
+                                    </a>
+                                    <form action="{{ route('documents.destroy', $document) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este documento?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                            Eliminar
+                                        </button>
+                                    </form>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <div class="bg-gray-50 rounded-lg p-8 text-center border-2 border-dashed border-gray-300">
+                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-gray-500 font-medium">No hay documentos adjuntos para este cliente.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+
+            <!-- Detalle de Lotes y Planes de Pago -->
+            @if($client->lots->count() > 0)
+                @foreach ($client->lots as $lot)
+                    <div class="bg-white overflow-hidden shadow-lg sm:rounded-xl border border-gray-200">
+                        <div class="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold shadow-md">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-900">Lote: {{ $lot->identifier }}</h3>
+                            </div>
+                        </div>
+                        
+                        <div class="p-6 text-gray-900">
+                            @forelse ($lot->paymentPlans as $plan)
+                                <div class="mt-4 first:mt-0">
+                                    <div class="bg-gradient-to-r from-indigo-50 to-white rounded-lg p-4 mb-4 border border-indigo-100">
+                                        <h4 class="font-bold text-lg text-gray-800">{{ $plan->service->name }} <span class="text-indigo-600">- Total: ${{ number_format($plan->total_amount, 2) }}</span></h4>
+                                    </div>
+                                    <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                                        <table class="w-full text-sm">
+                                            <thead class="text-xs text-gray-700 uppercase bg-gradient-to-r from-gray-50 to-gray-100">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left font-semibold">#</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Vencimiento</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Monto Base</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Intereses</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Total</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Pagado</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Adeudo</th>
+                                                    <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                                                    <th class="px-4 py-3 text-right font-semibold">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-200 bg-white">
+                                                @foreach ($plan->installments->sortBy('installment_number') as $installment)
+                                                    @php
+                                                        $totalDue = $installment->base_amount + $installment->interest_amount;
+                                                        $totalPaid = $installment->transactions->sum('pivot.amount_applied');
+                                                        $remaining = $totalDue - $totalPaid;
+                                                    @endphp
+                                                    <tr class="hover:bg-indigo-50 transition-colors duration-150">
+                                                        <td class="px-4 py-3 font-semibold text-gray-900">{{ $installment->installment_number }}</td>
+                                                        <td class="px-4 py-3 text-gray-700">{{ $installment->due_date->format('d/m/Y') }}</td>
+                                                        <td class="px-4 py-3 font-medium text-gray-900">${{ number_format($installment->base_amount, 2) }}</td>
+                                                        <td class="px-4 py-3 font-medium text-yellow-600">${{ number_format($installment->interest_amount, 2) }}</td>
+                                                        <td class="px-4 py-3 font-bold text-gray-900">${{ number_format($totalDue, 2) }}</td>
+                                                        <td class="px-4 py-3 font-medium text-green-600">${{ number_format($totalPaid, 2) }}</td>
+                                                        <td class="px-4 py-3 font-bold {{ $remaining > 0.005 ? 'text-red-600' : 'text-green-600' }}">${{ number_format($remaining, 2) }}</td>
+                                                        <td class="px-4 py-3">
+                                                            @php
+                                                                $statusClass = $remaining <= 0.005 ? 'bg-green-100 text-green-800 border-green-200' : ($installment->status == 'vencida' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-yellow-100 text-yellow-800 border-yellow-200');
+                                                            @endphp
+                                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full border {{ $statusClass }}">
+                                                                {{ $remaining <= 0.005 ? 'Pagada' : ucfirst($installment->status) }}
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-right">
+                                                            <div class="flex items-center justify-end gap-2">
+                                                                @if ($installment->interest_amount > 0)
+                                                                    <form action="{{ route('installments.condone', $installment) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Seguro?');">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors">
+                                                                            Condonar
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
+                                                                @if($remaining > 0.005)
+                                                                    <a href="{{ generate_whatsapp_message($installment, $remaining) }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 rounded-md border border-green-200 transition-colors">
+                                                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                                                                        </svg>
+                                                                        Notificar
+                                                                    </a>
+                                                                    <a href="{{ route('transactions.create', ['client_id' => $client->id, 'installment_id' => $installment->id]) }}" class="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-md border border-indigo-200 transition-colors">
+                                                                        Pagar
+                                                                    </a>
+                                                                @endif
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="bg-gray-50 rounded-lg p-8 text-center border-2 border-dashed border-gray-300">
+                                    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-500 font-medium">Este lote no tiene planes de pago.</p>
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
+                @endforeach
+            @else
+                <div class="bg-white overflow-hidden shadow-lg sm:rounded-xl p-12 text-center border border-gray-200">
+                    <div class="w-20 h-20 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                    </div>
+                    <p class="text-lg text-gray-500 font-medium">Este cliente no tiene lotes asignados.</p>
+                </div>
+            @endif
+
         </div>
     </div>
 </x-app-layout>

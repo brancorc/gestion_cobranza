@@ -5,15 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\Transaction;
+use App\Models\Owner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
-    
     public function index(Request $request)
     {
         $query = Transaction::with(['client', 'installments.paymentPlan.lot.owner']);
@@ -26,15 +25,22 @@ class TransactionController extends Controller
                 });
         }
 
+        if ($request->filled('owner_id')) {
+            $ownerId = $request->owner_id;
+            $query->whereHas('installments.paymentPlan.lot', function ($q) use ($ownerId) {
+                $q->where('owner_id', $ownerId);
+            });
+        }
+
         $transactions = $query->latest()->paginate(15)->withQueryString();
+        $owners = Owner::orderBy('name')->get();
         
-        return view('transactions.index', compact('transactions'));
+        return view('transactions.index', compact('transactions', 'owners'));
     }
 
     public function create(Request $request)
     {
         $clients = Client::orderBy('name')->get();
-        
         $selectedClientId = $request->query('client_id');
         $selectedInstallmentId = $request->query('installment_id');
 
@@ -55,14 +61,17 @@ class TransactionController extends Controller
         $amountPaid = floatval($validated['amount_paid']);
         $selectedInstallments = Installment::with('transactions')->find($validated['installments']);
         
+        // --- CÁLCULO DE DEUDA ACTUALIZADO ---
         $totalDueForSelected = $selectedInstallments->reduce(function ($carry, $installment) {
-            $totalOwed = $installment->base_amount + $installment->interest_amount;
+            // Usa el campo 'amount' si existe, si no, el 'base_amount'
+            $totalOwed = ($installment->amount ?? $installment->base_amount) + $installment->interest_amount;
             $totalPaid = $installment->transactions->sum('pivot.amount_applied');
             return $carry + ($totalOwed - $totalPaid);
         }, 0);
+        // --- FIN DE ACTUALIZACIÓN ---
 
         if ($amountPaid > round($totalDueForSelected, 2) + 0.001) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'amount_paid' => 'El monto a pagar no puede ser mayor que el adeudo de las cuotas seleccionadas (Total: $' . number_format($totalDueForSelected, 2) . ').'
             ]);
         }
@@ -86,10 +95,11 @@ class TransactionController extends Controller
             foreach ($installmentsToProcess as $installment) {
                 if ($amountToApply <= 0) break;
 
-                // Lógica de pago simplificada y corregida
+                // --- LÓGICA DE PAGO ACTUALIZADA ---
                 $paidSoFar = $installment->transactions->sum('pivot.amount_applied');
-                $totalValue = $installment->base_amount + $installment->interest_amount;
+                $totalValue = ($installment->amount ?? $installment->base_amount) + $installment->interest_amount;
                 $remainingBalance = $totalValue - $paidSoFar;
+                // --- FIN DE ACTUALIZACIÓN ---
 
                 $amountForThisInstallment = min($amountToApply, $remainingBalance);
 
@@ -98,7 +108,7 @@ class TransactionController extends Controller
                 }
 
                 $newTotalPaid = $paidSoFar + $amountForThisInstallment;
-                if ($newTotalPaid >= $totalValue - 0.001) { // Margen para errores de punto flotante
+                if ($newTotalPaid >= $totalValue - 0.001) {
                     $installment->status = 'pagada';
                     $installment->save();
                 }
@@ -112,8 +122,6 @@ class TransactionController extends Controller
             DB::commit();
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            // Revertir el cambio de 'throw $e;' después de depurar
             return back()->with('error', 'Error al procesar el pago: ' . $e->getMessage())->withInput();
         }
 
@@ -121,7 +129,6 @@ class TransactionController extends Controller
             ->with('success', 'Pago registrado exitosamente.')
             ->with('new_transaction_id', $transaction->id);
     }
-
 
     public function showPdf(Transaction $transaction)
     {
@@ -131,5 +138,4 @@ class TransactionController extends Controller
         
         return $pdf->stream('recibo-' . $transaction->folio_number . '.pdf');
     }
-    
 }

@@ -13,15 +13,18 @@ class ClientInstallmentController extends Controller
         $installments = Installment::whereHas('paymentPlan.lot', function ($query) use ($client) {
                 $query->where('client_id', $client->id);
             })
-            ->with('paymentPlan.service', 'paymentPlan.lot', 'transactions')
+            ->with(['paymentPlan.service', 'paymentPlan.lot', 'transactions'])
             ->orderBy('due_date', 'asc')
             ->get();
 
         $installments->each(function ($installment) {
             $totalPaid = $installment->transactions->sum('pivot.amount_applied');
-            $totalOwed = $installment->base_amount + $installment->interest_amount;
+            
+            // CORRECCIÓN: Usar el campo 'amount' si existe, si no, 'base_amount'.
+            $baseValue = $installment->amount ?? $installment->base_amount;
+            $totalOwed = $baseValue + $installment->interest_amount;
+            
             $installment->remaining_balance = $totalOwed - $totalPaid;
-            // CAMBIO: Añadir fecha formateada
             $installment->formatted_due_date = \Illuminate\Support\Carbon::parse($installment->due_date)->format('d/m/Y');
         });
 

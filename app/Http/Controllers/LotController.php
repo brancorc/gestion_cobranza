@@ -15,36 +15,63 @@ class LotController extends Controller
         $query = Lot::with(['client', 'owner']);
 
         if ($request->filled('search')) {
-            $searchTerm = '%' . $request->search . '%';
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('identifier', 'like', $searchTerm)
-                ->orWhereHas('client', function ($subQ) use ($searchTerm) {
-                    $subQ->where('name', 'like', $searchTerm);
-                })
-                ->orWhereHas('owner', function ($subQ) use ($searchTerm) { // <-- LÓGICA AÑADIDA
-                    $subQ->where('name', 'like', $searchTerm);
+            $search = $request->search;
+
+            // Lógica mejorada para buscar por Manzana y Lote
+            // Busca patrones como "manzana 10 lote 5", "m 10 l 5", "10 5"
+            if (preg_match('/^(?:manzana|mz|m)\s*(\d+)\s*(?:lote|l)?\s*(\d+)?$/i', $search, $matches)) {
+                $block = $matches[1];
+                $lot = $matches[2] ?? null;
+
+                $query->where('block_number', $block);
+                if ($lot) {
+                    $query->where('lot_number', $lot);
+                }
+            } 
+            // Busca patrones como "manzana 10", "m 10"
+            elseif (preg_match('/^(?:manzana|mz|m)\s*(\d+)$/i', $search, $matches)) {
+                $block = $matches[1];
+                $query->where('block_number', $block);
+            }
+            // Si no coincide, busca por nombre de cliente o socio
+            else {
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('client', function ($subQ) use ($search) {
+                        $subQ->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('owner', function ($subQ) use ($search) {
+                        $subQ->where('name', 'like', "%{$search}%");
+                    });
                 });
-            });
+            }
         }
         
         $lots = $query->latest()->paginate(9)->withQueryString();
         
         $lots->getCollection()->transform(function ($lot) {
-            $lot->total_debt = 0;
+            $totalLotDebt = 0;
             $lot->payment_plans_summary = $lot->paymentPlans()
                 ->with(['installments.transactions', 'service'])
                 ->get()
-                ->map(function ($plan) use (&$lot) {
-                    $totalDue = $plan->installments->sum(fn($inst) => $inst->base_amount + $inst->interest_amount);
-                    $totalPaid = $plan->installments->sum(fn($inst) => $inst->transactions->sum('pivot.amount_applied'));
-                    $debt = $totalDue - $totalPaid;
-                    $lot->total_debt += $debt;
+                ->map(function ($plan) use (&$totalLotDebt) {
+                    
+                    $planDebt = $plan->installments->reduce(function ($carry, $installment) {
+                        $totalDue = ($installment->amount ?? $installment->base_amount) + $installment->interest_amount;
+                        $totalPaid = $installment->transactions->sum('pivot.amount_applied');
+                        $remaining = $totalDue - $totalPaid;
+                        
+                        return $carry + ($remaining > 0 ? $remaining : 0);
+                    }, 0);
+
+                    $totalLotDebt += $planDebt;
                     
                     return [
                         'service_name' => $plan->service->name,
-                        'debt' => $debt > 0 ? $debt : 0,
+                        'debt' => $planDebt,
                     ];
                 });
+                
+            $lot->total_debt = $totalLotDebt;
             return $lot;
         });
 
@@ -54,63 +81,36 @@ class LotController extends Controller
     public function create()
     {
         $clients = Client::orderBy('name')->get();
-        $owners = \App\Models\Owner::orderBy('name')->get();
-        return view('lots.create', compact('clients', 'owners')); 
+        $owners = \App\Models\Owner::orderBy('name')->get(); // Cargar la lista de socios
+        
+        return view('lots.create', compact('clients', 'owners')); // Pasar socios a la vista
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'owner_id' => 'required|exists:owners,id',
+            'owner_id' => 'nullable|exists:owners,id',
             'block_number' => 'required|string|max:255',
             'lot_number' => 'required|string|max:255',
             'client_id' => 'nullable|exists:clients,id',
-            'service_id' => 'required|exists:services,id',
-            'total_amount' => 'required|numeric|min:0',
-            'number_of_installments' => 'required|integer|min:1',
-            'start_date' => 'required|date',
         ]);
 
-        // Validar unicidad combinada de manzana y lote para el mismo socio
-        $exists = Lot::where('owner_id', $validated['owner_id'])
-                    ->where('block_number', $validated['block_number'])
-                    ->where('lot_number', $validated['lot_number'])
-                    ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['lot_number' => 'Este número de lote ya existe para la manzana y socio especificados.'])->withInput();
+        // Validar unicidad combinada
+        if (Lot::where('block_number', $validated['block_number'])->where('lot_number', $validated['lot_number'])->exists()) {
+            return back()->withErrors(['lot_number' => 'Este número de lote ya existe para la manzana especificada.'])->withInput();
         }
         
-        try {
-            DB::beginTransaction();
-
-            $lot = Lot::create([
-                'owner_id' => $validated['owner_id'],
-                'block_number' => $validated['block_number'],
-                'lot_number' => $validated['lot_number'],
-                'client_id' => $validated['client_id'],
-                'total_price' => $validated['total_amount'],
-                'status' => $validated['client_id'] ? 'vendido' : 'disponible',
-            ]);
-
-            $paymentPlan = $lot->paymentPlans()->create([
-                'service_id' => $validated['service_id'],
-                'total_amount' => $validated['total_amount'],
-                'number_of_installments' => $validated['number_of_installments'],
-                'start_date' => $validated['start_date'],
-            ]);
-            
-            $paymentPlanController = new PaymentPlanController();
-            $paymentPlanController->generateInstallments($paymentPlan);
-
-            DB::commit();
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error al crear el lote: ' . $e->getMessage())->withInput();
-        }
+        // Crear el lote
+        Lot::create([
+            'owner_id' => $validated['owner_id'],
+            'block_number' => $validated['block_number'],
+            'lot_number' => $validated['lot_number'],
+            'client_id' => $validated['client_id'],
+            'status' => $validated['client_id'] ? 'vendido' : 'disponible',
+            'total_price' => 0, // El precio ahora se define en el plan de pago
+        ]);
         
-        return redirect()->route('lots.index')->with('success', 'Lote y plan de pago creados exitosamente.');
+        return redirect()->route('lots.index')->with('success', 'Lote creado exitosamente. Ahora puedes asignarle planes de pago.');
     }
 
     public function edit(Lot $lot)
@@ -126,10 +126,12 @@ class LotController extends Controller
             'identifier' => 'required|string|max:255|unique:lots,identifier,' . $lot->id,
             'status' => 'required|in:disponible,vendido,liquidado',
             'owner_id' => 'sometimes|nullable|exists:owners,id',
+            
         ]);
 
         $lot->identifier = $validated['identifier'];
         $lot->status = $validated['status'];
+        $lot->notes = $request->input('notes');
 
         if ($request->has('owner_id')) {
             $lot->owner_id = $validated['owner_id'];
@@ -154,12 +156,17 @@ class LotController extends Controller
 
     public function destroy(Lot $lot)
     {
+        // Restricción estándar: no se puede eliminar si tiene planes de pago
         if ($lot->paymentPlans()->exists()) {
-            return back()->with('error', 'No se puede eliminar un lote con planes de pago asociados.');
+            // PERO, si el usuario es admin, sí puede forzar la eliminación
+            if (auth()->user()->can('forceDelete', $lot)) {
+                $lot->delete(); // La eliminación en cascada se encargará del resto
+                return redirect()->route('lots.index')->with('success', 'Lote y todo su historial han sido eliminados forzosamente.');
+            }
+            return back()->with('error', 'No se puede eliminar: el lote tiene planes de pago asociados. Solo un administrador puede forzar esta acción.');
         }
 
         $lot->delete();
-
         return redirect()->route('lots.index')->with('success', 'Lote eliminado exitosamente.');
     }
 }

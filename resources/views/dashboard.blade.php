@@ -146,7 +146,7 @@
                         <tbody>
                             @forelse ($overdueInstallments as $installment)
                                 @php
-                                    $totalDue = $installment->base_amount + $installment->interest_amount;
+                                    $totalDue = ($installment->amount ?? $installment->base_amount) + $installment->interest_amount;
                                     $totalPaid = $installment->transactions->sum('pivot.amount_applied');
                                     $remaining = $totalDue - $totalPaid;
                                 @endphp
@@ -168,12 +168,11 @@
                                             ${{ number_format($remaining, 2) }}
                                         </td>
                                         <td class="px-6 py-4 text-right">
-                                            {{-- MODIFICAR ESTA SECCIÓN --}}
                                             <div class="flex items-center justify-end gap-4">
-                                                <a href="{{ generate_whatsapp_message($installment, $remaining) }}" target="_blank" class="font-medium text-green-600 dark:text-green-500 hover:underline">
+                                                <a href="{{ generate_whatsapp_message($installment, $remaining) }}" target="_blank" class="font-medium text-green-600 hover:underline">
                                                     Notificar
                                                 </a>
-                                                <a href="{{ route('transactions.create', ['client_id' => $installment->paymentPlan->lot->client_id, 'installment_id' => $installment->id]) }}" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+                                                <a href="{{ route('transactions.create', ['client_id' => $installment->paymentPlan->lot->client_id, 'installment_id' => $installment->id]) }}" class="font-medium text-blue-600 hover:underline">
                                                     Pagar
                                                 </a>
                                             </div>

@@ -9,7 +9,7 @@ class Lot extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['client_id', 'block_number', 'lot_number', 'identifier', 'total_price', 'status'];
+    protected $fillable = ['client_id', 'block_number', 'lot_number', 'identifier', 'total_price', 'status', 'notes'];
 
     public function client()
     {
